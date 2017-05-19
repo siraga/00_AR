@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+
+<html lang="id">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<!-- include three.js -->
+<script src='data/vendor/three.js/build/three.js'></script>
+<script src='data/vendor/three.js/build/three.min.js'></script>
+
+<!-- include js-aruco -->
+<script src='data/vendor/js-aruco/svd.js'></script>
+<script src='data/vendor/js-aruco/posit1-patched.js'></script>
+<script src='data/vendor/js-aruco/cv.js'></script>
+<script src='data/vendor/js-aruco/aruco.js'></script>
+
+<!-- include some extensions -->
+<script src='data/js/threex.webcamgrabbing.js'></script>
+<script src='data/js/threex.imagegrabbing.js'></script>
+<script src='data/js/threex.videograbbing.js'></script> 
+<script src='data/js/threex.jsarucomarker.js'></script>
+<script src="data/vendor/three.js/loaders/OBJLoader.js"></script>
+</head>
+
+<body style='margin: 0px; overflow: hidden;'>
+
+<div id='info' style='position: absolute; top: 0px; width: 100%;font-family:arial; font-weight: bolder;font-size:100%; padding-top: 20px; text-align:center;'>
+	<a class='webcam' href='javascript:void();' style='background-color:white;color:red;text-decoration:none;border:2px solid red;border-radius:3px;padding:5px;'>RnD Multimedia Web Based Augmented Reality</a>
+
+</div>
+
+
+
+<script>
+	//////////////////////////////////////////////////////////////////////////////////
+	//		test kalo2 nih browser ga support webGL sama getUserMedia
+	//////////////////////////////////////////////////////////////////////////////////
+	;(function(){
+		// TODO backport those 2 in Detector.js
+		var hasGetUserMedia = (navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia) ? true : false
+		var hasMediaStreamTrackSources = MediaStreamTrack.getSources ? true : false
+		var hasWebGL = ( function () { try { var canvas = document.createElement( 'canvas' ); return !! ( window.WebGLRenderingContext && ( canvas.getContext( 'webgl' ) || canvas.getContext( 'experimental-webgl' ) ) ); } catch ( e ) { return false; } } )()
+		
+	//	if( hasWebGL === false ){
+	//		alert('your browser doesn\'t support navigator.getUserMedia()')			
+	//	}
+	//	if( hasMediaStreamTrackSources === false ){
+	//		alert('your browser doesn\'t support MediaStreamTrack.getSources()')			
+	//	}
+	//	if( hasGetUserMedia === false ){
+	//		alert('your browser doesn\'t support navigator.getUserMedia()')		
+	//	}
+	})()
+	
+	//////////////////////////////////////////////////////////////////////////////////
+	//		matiin beberapa part
+	//////////////////////////////////////////////////////////////////////////////////
+	//var detectMarkersEnabled	= true
+	//var markerToObject3DEnabled = true
+	//var webglRenderEnabled = true
+	//var markerDebugEnabled = true
+
+	//////////////////////////////////////////////////////////////////////////////////
+	//		Handle ui button
+	//////////////////////////////////////////////////////////////////////////////////
+	document.querySelector('#info .webcam').addEventListener('click', function(event){
+		location.hash	= '#webcam'
+		location.reload()
+	})
+
+
+
+
+	
+	//////////////////////////////////////////////////////////////////////////////////
+	//		Init
+	//////////////////////////////////////////////////////////////////////////////////
+
+	// init renderer
+	var renderer	= new THREE.WebGLRenderer({
+		antialias	: true,
+		alpha		: true,
+	});
+	renderer.setSize( window.innerWidth, window.innerHeight );
+	document.body.appendChild( renderer.domElement );
+
+	// array of functions for the rendering loop
+	var onRenderFcts = [];
+
+	// init scene and camera
+	var scene = new THREE.Scene()
+	var camera	= new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.01, 1000);
+	camera.position.z = 2;
+
+	//////////////////////////////////////////////////////////////////////////////////
+	//		bikin markerObject3D
+	//////////////////////////////////////////////////////////////////////////////////
+	var markerObject3D = new THREE.Object3D()
+	scene.add(markerObject3D)
+
+	//////////////////////////////////////////////////////////////////////////////////
+	//		naro object pada markerObject3D
+	//////////////////////////////////////////////////////////////////////////////////
+
+	;(function(){
+
+				// Tata lampu
+				var ambient = new THREE.AmbientLight( 0x404040 );
+				scene.add( ambient );
+				
+				dirLight = new THREE.DirectionalLight( 0xffffff, 1 );
+				dirLight.color.setHSL( 0, 0, 1 );
+				dirLight.position.set( 2, 2, 2 );
+				dirLight.position.multiplyScalar( 100 );
+				scene.add(camera)
+				camera.add( dirLight );
+		
+				var loader = new THREE.JSONLoader();
+
+				// nyedot resources yang akan ditampilkan
+				loader.load('data/model_3D_json/kerangka.json',
+					// Function when resource is loaded
+					function ( geometry, materials ) {
+					var material = new THREE.MultiMaterial( materials );
+					var object = new THREE.Mesh( geometry, material );
+					object.scale.set( 0.75, 0.75, 0.75 );
+                    object.rotation.x = 180;
+                    object.position.x = 0;
+                
+                    
+					markerObject3D.add( object );
+					}
+				);
+	})()
+
+	// naro logo dimari
+	//;(function(){
+	//	var material = new THREE.SpriteMaterial({
+	//		map: THREE.ImageUtils.loadTexture( 'images/logo.png' ),
+	//	});
+	//	var geometry = new THREE.BoxGeometry(1,1,1)
+	//	var object3d = new THREE.Sprite(material );
+	//	object3d.scale.set( 2, 2, 1 );
+	//	markerObject3D.add(object3d)
+	//})()
+
+	//////////////////////////////////////////////////////////////////////////////////
+	//		lengkap deh, tinggal dirender jadi satu pake fungsi berikut
+	//////////////////////////////////////////////////////////////////////////////////
+
+	// nanganin jendela yang bisa di resize
+	window.addEventListener('resize', function(){
+		renderer.setSize( window.innerWidth, window.innerHeight )
+		camera.aspect	= window.innerWidth / window.innerHeight
+		camera.updateProjectionMatrix()
+	}, false)
+
+	// nge_render adegan
+	onRenderFcts.push(function(){	
+		//if( webglRenderEnabled === true ){
+			renderer.render( scene, camera );
+		//}
+	})
+
+	// ngejalanin pengulangan render
+	var previousTime = performance.now()
+	requestAnimationFrame(function animate(now){
+
+		requestAnimationFrame( animate );
+
+		onRenderFcts.forEach(function(onRenderFct){
+			onRenderFct(now, now - previousTime)
+		})
+
+		previousTime	= now
+	})
+
+	//////////////////////////////////////////////////////////////////////////////////
+	//	Jadi deh augmented reality kita
+	//////////////////////////////////////////////////////////////////////////////////
+
+	// init the marker recognition
+	var jsArucoMarker	= new THREEx.JsArucoMarker()
+
+	// if no specific image source is specified, take the webcam by default
+	if( location.hash === '' )	location.hash = '#webcam'
+
+	// init the image source grabbing
+	if( location.hash === '#video' ){
+		var videoGrabbing = new THREEx.VideoGrabbing()
+		jsArucoMarker.videoScaleDown = 2
+	}else if( location.hash === '#webcam' ){
+		var videoGrabbing = new THREEx.WebcamGrabbing()
+		jsArucoMarker.videoScaleDown = 2
+	}else if( location.hash === '#image' ){
+		var videoGrabbing = new THREEx.ImageGrabbing()
+		jsArucoMarker.videoScaleDown = 10
+	}else console.assert(false)
+
+	// naroh videoGrabbing.domElement pada body
+        document.body.appendChild(videoGrabbing.domElement)
+
+	//////////////////////////////////////////////////////////////////////////////////
+	//		process kamera untuk mendeteksi marker
+	//////////////////////////////////////////////////////////////////////////////////
+	// nyetting agar marker terlihat = visible
+	markerObject3D.visible	= false
+	// process the image source with the marker recognition
+	onRenderFcts.push(function(){
+		//if( detectMarkersEnabled === false )	return
+		
+		var domElement	= videoGrabbing.domElement
+		var markers	= jsArucoMarker.detectMarkers(domElement)
+
+		//if( markerToObject3DEnabled === false )	return
+		markerObject3D.visible = false
+
+		// see if this.markerId has been found
+		markers.forEach(function(marker){
+			// if( marker.id !== 265 )	return
+
+			jsArucoMarker.markerToObject3D(marker, markerObject3D)
+
+			markerObject3D.visible = true
+		})
+	})
+</script></body>
